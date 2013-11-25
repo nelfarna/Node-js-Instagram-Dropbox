@@ -4,6 +4,7 @@ First run "npm install"
 Execute "node app.js" to run server
 Client code located in /public folder (primarily photos.js and photos.html)
 Must register a new client with both Instagram and Dropbox. Enter keys/secrets in config files
+
 Create .env file for localhost or set the config file on host that follows this format:
  		
  		INSTAGRAM_KEY=<key provided by Instagram>
