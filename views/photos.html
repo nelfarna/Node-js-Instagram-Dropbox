@@ -1,0 +1,69 @@
+
+{% extends 'layout.html' %}
+
+{% block title %}Insta-Grab{% endblock %}
+
+{% block head %}
+  {% parent %}
+	<script src="/javascripts/photos.js"></script>
+{% endblock %}
+
+{% block content %}
+	
+	<div id="header">
+		<p style="text-align:right;float:right;display:inline-block"><a id="dl" class="btn btn-lg btn-primary" href="#">Zip Selected Photos</a>
+    </p>
+    <p style="text-align:left;float:left;display:inline-block;margin-top:50px"><a id="select" class="btn btn-info btn-xs" href="#">
+      Select All</a></p>
+    <br>
+    <p id="validate" class="validate hide">Please Select Some Photos</p>
+
+	</div>
+	
+	<div id="photos"></div>
+
+	   
+<div class="modal fade" id="photoModal" tabindex="-1" role="dialog" aria-labelledby="photoModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title" id="photoModalLabel"></h4>
+      </div>
+      <div class="modal-body carouselCtnr">
+        <img id="instaPhoto" src="" />
+        <a id="prevLink" class="carousel-control left" href="#" data-slide="prev"><span>&lsaquo;</span></a>  
+        <a id="nextLink" class="carousel-control right" href="#" data-slide="prev"><span>&rsaquo;</span></a> 
+      </div>
+      <p style="text-align:center;">
+          <button id="dbModalLink" type="button" class="btn btn-primary" data-loading-text="Sending...">Send to Dropbox</button>
+      </p>
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+ <div class="modal fade" id="zipModal" tabindex="-1" role="dialog" aria-labelledby="zipModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+        <h4 class="modal-title" id="zipModalLabel">Zipping Photos...</h4>
+      </div>
+      <div class="modal-body">
+        <div class="progress">
+            <div class="progress-bar" style="width: 0%;"></div>
+        </div>
+        <p style="text-align:center;">
+        	<a id="zipLink" class="btn btn-lg btn-success" href="/photos/download">Download Zip</a>
+          <a id="dropboxLink" class="btn btn-lg btn-info" href="#">Send to Dropbox</a>
+        </p>
+      </div>
+     
+    </div><!-- /.modal-content -->
+  </div><!-- /.modal-dialog -->
+</div><!-- /.modal -->
+
+
+
+	
+{% endblock %}
