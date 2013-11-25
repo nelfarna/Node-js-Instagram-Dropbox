@@ -83,7 +83,8 @@ exports.instagramSubscribe = function(req, res, clients, next) {
 		if (error) {
 			next(error);
 		} else {
-			res.redirect('/dbAuth');
+			// res.redirect('/dbAuth');
+			res.redirect('/photos');
 		}
 	});
 };
@@ -120,5 +121,7 @@ exports.dropboxRequest = function(req, res, clients, next) {
 			}
 		});
 			
+	} else {
+		res.redirect('/photos');
 	}
 };

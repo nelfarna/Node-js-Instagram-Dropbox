@@ -113,7 +113,7 @@ function responseHandler (response) {
 app.get('/', routes.index);
 
 app.get('/getstarted', function(req, res) {
-	res.redirect('/igAuth');
+	res.redirect('/photos');
 });
 
 app.get('/igAuth', function(req, res) {
