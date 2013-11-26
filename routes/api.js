@@ -67,10 +67,10 @@ exports.instagramPost = function (req, res, clients, next) {
 		var fName = url.split('/').pop();
 		var fPath = "./tmp/" + fName;
 
-		clients[userID]['ig'].readMediaFile(url, fPath, function ( fName, data) {
+		clients[userID]['ig'].getMediaFile(url, fPath, function ( err, data) {
 			clients[userID]['dbox'].putFile(fName, data, 'image/jpeg', function ( resp, err) {
-				if (error) {
-					next(error);
+				if (err) {
+					next(err);
 				}
 			});
 		});
