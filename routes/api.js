@@ -3,38 +3,22 @@
  *  Handles requests for authorization, photo retrieval, and uploading to Dropbox
  */
 
-var db = require('../lib/dropbox.js');
-var ig = require('../lib/instagram.js');  
+const 	igAPI = require('../lib/instagramOauth'),
+		dbAPI = require('../lib/dropboxOauth'),
+		igClient = require('../lib/instagramClient'),  
+		dbClient = require('../lib/dropboxClient'); 
 
-var urlParser = require('url');
-var qs = require('querystring');
+const 	urlParser = require('url'),
+		qs = require('querystring');
 
-var fs = require('fs');
+exports.instagramRequest = (req, res, clients, next) => {
 
-// Instagram information (stored in Heroku config or .env for localhost)
-var ig_KEY = process.env.INSTAGRAM_KEY;  
-var ig_SECRET = process.env.INSTAGRAM_SECRET;    
-var ig_REDIRECT = process.env.INSTAGRAM_REDIRECT;  // the redirect uri registered in your Instagram client
-
-// Dropbox information (stored in Heroku config or .env for localhost)
-var db_KEY =  process.env.DROPBOX_KEY; 
-var db_SECRET = process.env.DROPBOX_SECRET; 
-var db_REDIRECT = process.env.DROPBOX_REDIRECT; // the redirect uri registered in your Dropbox client
-
-var dbAPI = new db.DropboxAPI(db_KEY, db_SECRET, db_REDIRECT);
-var igAPI = new ig.InstagramAPI(ig_KEY, ig_SECRET, ig_REDIRECT);
-
-var instAPI = function () {
-	dbAPI = new db.DropboxAPI(db_KEY, db_SECRET, db_REDIRECT);
-	igAPI = new ig.InstagramAPI(ig_KEY, ig_SECRET, ig_REDIRECT);
-};
-
-exports.instagramRequest = function(req, res, clients, next){
-    var url = urlParser.parse(req.url).query;
+    const url = urlParser.parse(req.url).query;
 
 	if(url.indexOf("hub.challenge") !== -1) {
-		var urlVals = url.split('&');
-		var challenge = urlVals[1].replace("hub.challenge=", "");
+
+		let urlVals = url.split('&'),
+			challenge = urlVals[1].replace("hub.challenge=", "");
 
 		headers = {
           'Content-Length': challenge.length,
@@ -45,81 +29,83 @@ exports.instagramRequest = function(req, res, clients, next){
 	}
 
 	if (url.indexOf("code") !== -1 ) {
-		if (!igAPI) instAPI();
-		igAPI.accessToken(url.replace('code=', ''), function (resp, error) {
-			if(error) {
-				next(error);
-			}
-			clients[resp.user.id] = resp;
-			clients[resp.user.id]['ig'] = new ig.InstagramClient(resp.access_token, ig_KEY, ig_SECRET, resp.user.id);
-			req.session.userId = resp.user.id;
-			res.redirect('/subscribe');
-		});
+
+		igAPI.accessToken(url.replace('code=', ''))
+			.then(resp => {
+				clients[resp.user.id] = resp;
+				clients[resp.user.id]['ig'] = new igClient(resp.access_token, igAPI.get('client_id'), igAPI.get('client_secret'), resp.user.id);
+				req.session.userId = resp.user.id;
+				res.redirect('/subscribe');
+			})
+			.catch(err => console.log(err));
 	}
 };
 
-exports.instagramPost = function (req, res, clients, next) {
-	var userID = req.body[0].object_id;
-	clients[userID]['ig'].getMediaURL(req.body[0].data.media_id, function ( url, error ) {
-		if (error) {
-			next(error);
-		}
-		var fName = url.split('/').pop();
-		var fPath = "./tmp/" + fName;
+exports.instagramPost = (req, res, clients) => {
 
-		clients[userID]['ig'].getMediaFile(url, fPath, function ( err, data) {
-			clients[userID]['dbox'].putFile(fName, data, 'image/jpeg', function ( resp, err) {
-				if (err) {
-					next(err);
-				}
-			});
+	const userId = req.body[0].object_id;
+	let fName = '',
+		fPath = '',
+		url = '';
+
+	clients[userId]['ig'].getMediaURL(req.body[0].data.media_id)
+		.then(mediaURL => {
+			url = mediaURL;
+			fName = url.split('/').pop().split('?')[0];
+			fPath = "/tmp/";
+			return clients[userId]['ig'].getMediaFile(url, fPath)
+		})
+		.then(data => {
+			return clients[userId]['dbox'].uploadFile(fName, data, 'image/jpeg');
+		})
+		.then(data => {
+			console.log('Received new post from Instagram. Sent to Dropbox.');
+		})
+		.catch(err => {
+			console.log('Error receiving new Instagram post.');
+			console.log(err);
 		});
-	});
 };
 
-exports.instagramSubscribe = function(req, res, clients, next) {
-	if(!igAPI) instAPI();
-	igAPI.subscribe(req.session.userId, clients[req.session.userId]['ig'].access_token, function(resp, error) {
-		if (error) {
-			next(error);
-		} else {
-			// res.redirect('/dbAuth');
+exports.instagramSubscribe = (req, res, clients, next) => {
+
+	igAPI.subscribe(req.session.userId, clients[req.session.userId]['access_token'])
+		.then(resp => {
 			res.redirect('/photos');
-		}
-	});
+		})
+		.catch(err => console.log(err));
 };
 
-exports.instagramAuthorize = function(handler) {
-	if(!igAPI) instAPI();
+exports.instagramAuthorize = (handler) => {
+
 	igAPI.authorize(handler);
+
 };
 
-exports.dropboxAuthorize = function(handler, id) {
-	if(!dbAPI) instAPI();
+exports.dropboxAuthorize = (handler, id) => {
+
 	dbAPI.authorize(handler, id);
+
 };
 
-exports.dropboxRequest = function(req, res, clients, next) {
-	 var url = urlParser.parse(req.url).query;
-	 var userID;
-	 var code;
-	 if (url !== null && url.indexOf('code') !== -1 && url.indexOf('state') !== -1) {
-	 	
-	 	var urlVals = url.split('&');
-	 	code = urlVals[0].replace("code=", "");
-	 	userID = urlVals[1].replace("state=", "");
+exports.dropboxRequest = (req, res, clients, next) => {
+
+	const url = urlParser.parse(req.url).query;
+	let userId, code;
+
+	if (url !== null && url.indexOf('code') !== -1 && url.indexOf('state') !== -1) {
+
+	 	let urlVals = url.split('&');
+	 	userId = urlVals[0].replace("state=", "");
+	 	code = urlVals[1].replace("code=", "");
 
 	 	/// check here if state value is the right value
-	 	if(!dbAPI) instAPI();
-		dbAPI.accessToken(code, function(body, error) {
-
-			if (error) { 
-				next(error);
-			} else {
-				clients[userID]['dbox'] = new db.DropboxClient(body.access_token, db_KEY, db_SECRET);
-				res.redirect('http://' + req.get('Host') +  '/photos'); // force back to non-ssl to avoid issues 
-			}
-		});
+		dbAPI.accessToken(code)
+			.then(body => {
+				clients[userId]['dbox'] = new dbClient(body.access_token, dbAPI.get('client_id'), dbAPI.get('client_key'));
+				res.redirect('/photos');
+			})
+			.catch(err => console.log(err));
 			
 	} else {
 		res.redirect('/photos');
