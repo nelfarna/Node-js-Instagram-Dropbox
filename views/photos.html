@@ -5,24 +5,27 @@
 
 {% block head %}
   {% parent %}
-	<script src="/javascripts/photos.js"></script>
+  <script src="/javascript/photos.js"></script>
 {% endblock %}
 
 {% block content %}
-	
-	<div id="header">
-		<p style="text-align:right;float:right;display:inline-block"><a id="dl" class="btn btn-lg btn-primary" href="#">Zip Selected Photos</a>
+  
+  <div id="header">
+    <p style="text-align:right;float:right;display:inline-block;margin-top:20px"><a id="dl" class="btn btn-lg btn-primary" href="#">Zip Selected Photos</a>
     </p>
-    <p style="text-align:left;float:left;display:inline-block;margin-top:50px"><a id="select" class="btn btn-info btn-xs" href="#">
-      Select All</a></p>
-    <br>
+    <p style="text-align:left;float:left;display:inline-block;"><a href="https://www.instagram.com/{{ user.username }}"><img src="{{ user.profile_picture }}" class="profile"></a></p>
+
     <p id="validate" class="validate hide">Please Select Some Photos</p>
 
-	</div>
-	
-	<div id="photos"></div>
+  </div>
+  <div id="subheader">
+    <p style="text-align:left;float:left;display:inline-block;"><a id="select" class="btn btn-default btn-xs" href="#">
+        Select All</a></p>
+      <br class="clear">
+    </div>
+  <div id="photos"></div>
 
-	   
+     
 <div class="modal fade" id="photoModal" tabindex="-1" role="dialog" aria-labelledby="photoModalLabel" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -54,7 +57,7 @@
             <div class="progress-bar" style="width: 0%;"></div>
         </div>
         <p style="text-align:center;">
-        	<a id="zipLink" class="btn btn-lg btn-success" href="/photos/download">Download Zip</a>
+          <a id="zipLink" class="btn btn-lg btn-success" href="/photos/download">Download Zip</a>
           <a id="dropboxLink" class="btn btn-lg btn-info" href="#">Send to Dropbox</a>
         </p>
       </div>
@@ -62,8 +65,5 @@
     </div><!-- /.modal-content -->
   </div><!-- /.modal-dialog -->
 </div><!-- /.modal -->
-
-
-
-	
+  
 {% endblock %}
