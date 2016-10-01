@@ -1,5 +1,5 @@
 body {
-  background-color:#ffffff !important;
+  background-color:#eeeeee !important;
 }
 
 a {
@@ -15,12 +15,19 @@ ul, li {
     position: fixed;
     height:100px;
     width:100%;
-    padding:15px 50px;
+    padding:5px 40px;
     margin:0;
-    background-color:#eeeeee !important;
+    background-color:#e1e1e1 !important;
     text-align:center;
     z-index:10;	
-    border-bottom:2px solid #888888;
+    border-bottom:2px solid #aaaaaa;
+}
+
+#subheader {
+	position: fixed;
+	margin-top: 105px;
+	padding: 0 43px;
+	background-color: #bbbbbb;
 }
 
 #start {
@@ -30,7 +37,7 @@ ul, li {
 
 #photos {
 	margin-top: 0px;
-	padding:120px 40px;
+	padding:140px 40px;
 	background-color:#bbbbbb !important;
 }
 
@@ -96,6 +103,12 @@ ul, li {
 	clear:both;
 }
 
+.profile {
+	border-radius: 50%;
+	height: 90px;
+	margin: 0;
+}
+
 .carouselCtnr {
 	position:relative;
 }
@@ -107,7 +120,6 @@ ul, li {
 .carousel-control span {
 	margin-top:200px !important;
 }
-
 
 input[type=checkbox] {
 	visibility: hidden;
