@@ -3,57 +3,79 @@
  *  Handles requests for photo retrieval, zip creation, and uploading to Dropbox
  */
 
-var fs = require('fs');
-var targz = require('tar.gz');
+const	fsPromise = require('fs-promise'),
+		fs = require('fs'),
+		path = require('path');
 
-
-exports.main  = function(req, res){
-	res.render('photos');
+exports.main  = (req, res, clientInfo) => {
+	res.render('photos', { user: clientInfo['user']});
 };
 
-exports.processPostRequest = function ( type, clientInfo, req, res ) {
-
+exports.processPostRequest = ( type, clientInfo, req, res ) => {
+	
 	 switch ( type ) {
     	case 'dropOne':
+
     		if (clientInfo['dbox']) {
-	    		var fName = req.body.d.split('/').pop();
-				var fPath = "./tmp/" + fName;
-				clientInfo['ig'].getMediaFile(req.body.d, fPath, function ( err, data ) {
-					clientInfo['dbox'].putFile(fName, data, 'image/jpeg', function ( err, resp ) {
-						res.send(JSON.stringify({send: 'done'}));
+	    		let fName = req.body.d.split('/').pop().split('?')[0],
+	    			dir = '/tmp/';
+
+				clientInfo['ig'].getMediaFile(req.body.d, dir)
+					.then((data) => {
+						return clientInfo['dbox'].uploadFile(fName, data, 'image/jpeg');
+					})
+					.then(data => {
+						res.send(JSON.stringify({send: 'done'}))
+					})
+					.catch(err => {
+						console.log(err);
 					});
-				});
+					
 			}
     		break;
+
     	case 'dropZip':
+
     		if (clientInfo['dbox']) {
 
 	    		// if client is requesting to send files to Dropbox, send most recently available
-		  	    if(req.session.lastAvailable) {
+		  	    if (clientInfo['lastAvailable']) {
 
-		  	  		fs.readFile(req.session.lastAvailable, function(err, data) {
-		  	  			clientInfo['dbox'].putFile(req.session.lastAvailable.split('/').pop(), data, 'image/jpeg', 
-		  	  				function(data, err)  {
-		  	  					res.send(JSON.stringify({zip: 'done'}));
-							}
-						);
-				    });
+		  	  		fsPromise.readFile(clientInfo['lastAvailable'])
+		  	  			.then( data => {
+		  	  				return clientInfo['dbox'].uploadFile(clientInfo['lastAvailable'].split('/').pop(), data, 'image/jpeg'); 
+		  	  			})
+		  	  			.then (() => {
+		  	  				res.send(JSON.stringify({zip: 'done'}));
+						})
+						.catch(err => {
+							console.log("Error sending zip to Dropbox");
+						});
+				    
 		  	    }
 	  		}
     		break;
+
     	case 'getPhotos':
+
     		if (clientInfo['ig']) {
-	    		clientInfo['ig'].getNextMediaSet( function(data, err) {
-					if (err) {}
-					if(data['data'] !== '') {
-		    			data['data'].map( function( item ) {
-		    				if (item.user) delete item.user;
-		    			});
-		    		}
-		    		res.send(data['data']);
-				});
+
+	    		clientInfo['ig'].getNextMediaSet() //(err, data) => {
+	    			.then(data => {
+						// if (err) {}
+						if(data && data['data'] !== '') {
+			    			data['data'].map(item => {
+			    				if (item.user) delete item.user;
+			    			});
+			    			res.send(data['data']);
+			    		}
+			    		
+			    	})
+			    	.catch(err => console.log(err));
+			
     	    }
     		break;
+
     	default:
     		break;
 
@@ -61,17 +83,16 @@ exports.processPostRequest = function ( type, clientInfo, req, res ) {
 };
 
 
-exports.processGetRequest = function ( type, clientInfo, req, res ) {
+exports.processGetRequest = ( type, clientInfo, req, res ) => {
 
 	 switch ( type ) {
     	case 'progress':
-    		//respHandler.doAction( 'send', JSON.stringify({ percent: req.session.zipPercent }) );
-    		res.send(JSON.stringify({ percent: req.session.zipPercent }));
+    		res.send(JSON.stringify({ percent: clientInfo['zipPercent'] }));
     		break;
+
     	case 'download':
-    		if(req.session.lastAvailable)
-    			res.download(req.session.lastAvailable);
-    			//respHandler.doAction( 'download', req.session.lastAvailable );
+    		if(clientInfo['lastAvailable'])
+    			res.download(clientInfo['lastAvailable']);
     		break;
 
     	default:
@@ -79,98 +100,97 @@ exports.processGetRequest = function ( type, clientInfo, req, res ) {
     }
 };
 
-
 // function to remove directory after done with it
-var removeDirectory = function(path, done) {
-// 	var now = new Date();
-// var jsonDate = now.toJSON()
-			console.log("removing dir "); // + now.toJSON);
-	  if( fs.existsSync(path) ) {
-	    fs.readdirSync(path).forEach(function(file, index){
-		      var curPath = path + "/" + file;
+const removeDirectory = (fpath, done) => {
+	  if( fs.existsSync(fpath) ) {
+
+	    fs.readdirSync(fpath).forEach( (file, index) => {
+		      let curPath = fpath + "/" + file;
 		      if(fs.statSync(curPath).isDirectory()) { // recurse
 		        deleteFolderRecursive(curPath);
 		      } else { // delete file
 		        fs.unlinkSync(curPath);
 		      }
 	    });
-	    fs.rmdirSync(path);
+
+	    fs.rmdirSync(fpath);
 
 	  } 
 };
 
-var makeDirectory = function(path, cb) {
- 	fs.exists(path, function(exists) {
-		if (!exists) {
-			fs.mkdir(path, function(err) {
-				//cb();
-			});
-		}
-		cb();
+const makeDirectory = (directory) => {
+
+	return new Promise((resolve, reject) => {
+		require('mkdirp-promise/lib/node6')(directory)
+			.then(() => resolve())
+			.catch(err => reject(err));
 	});
 };
 
-var compressDirectory = function(path, zipName, cb) {
-	var compress = new targz().compress(path, zipName, function(err){
-	    // if(err) { 
-	    // 	cb(err);
-	    // }
-	    
-	    console.log('Compression for ' + zipName + " has ended.");
+const compressDirectory = (fpath, zipName) => {
 
-	    cb(err, zipName);
-	});
-};
+	const zipdir = require('zip-dir');
+	 
+	return new Promise((resolve, reject) => {
+		zipdir(fpath, { saveTo: zipName }, (err, buffer) => {
+			// `buffer` is the buffer of the zipped file 
+			// And the buffer was saved to `zipName 
+			console.log('Compression for ' + zipName + " has ended.");
 
-
-
-// function to retrieve and zip files given a list of urls
-var zipURLs = function(urls, clientInfo, cb) {
-	
-	var parentDir = './users/';
-	var path = parentDir + clientInfo.user.id + '/';
-
-	makeDirectory(path, function() {
-		clientInfo['ig'].writeMediaFiles(urls, path, function(err) {
-			if (err) { 
-				cb(err);
+			if (err) {
+				reject(err);
 			} else {
-				compressDirectory(path, parentDir  + clientInfo.user.username + '.tar.gz', function(err, zipPathName) {
-					// delete files from disk after zipping them
-					removeDirectory(path);
-					cb(err, zipPathName);
-				});
+				resolve();
 			}
 		});
 	});
 };
 
-exports.startZip = function (clientInfo, req, res, next) {
+// function to retrieve and zip files given a list of urls
+const zipMediaFiles = (urls, clientInfo) => {
+	
+	let parentDir = path.join(__dirname, '../users/'),
+		fpath = parentDir + clientInfo.user.username + '/',
+		zipName = parentDir + clientInfo.user.username + '.zip'
+
+	return new Promise((resolve, reject) => {
+		makeDirectory(fpath)
+			.then(() => {
+				return clientInfo['ig'].writeMediaFiles(urls, fpath); //, (err) => {
+			})
+			.then(() => {
+				return compressDirectory(fpath, zipName);
+			})
+			.then(() => {
+				removeDirectory(fpath);
+				resolve(zipName);
+			})
+			.catch(err => reject(err));
+			
+	});
+};
+
+exports.startZip = (clientInfo, req, res) => {
+
 	res.send({msg: 'received zip request'});
 
-	req.session.zipPercent = 0; // initialize session for keeping track of zipping progress
+	// initialize session for keeping track of zipping progress
+	clientInfo['zipPercent'] = 0;
 
 	// for progress bar
-	clientInfo['ig'].on('igGetPercent', function(value) {
-		if (req.session.zipPercent < value) {
-			req.session.zipPercent = value;
-			req.session.save();
+	clientInfo['ig'].on('igGetPercent', (value) => {
+		if (clientInfo['zipPercent'] < value) {
+			clientInfo['zipPercent'] = value;
 		}
 	});
 
-	zipURLs(req.body.d, clientInfo, function(error, fileLoc) {
-		if (error) {
-			next(error);
-		}
-		req.session.zipPercent = 100;
-		req.session.lastAvailable = fileLoc;
-		req.session.save();
-	});
-
-}
-
-
-
-
-
-
+	zipMediaFiles(req.body.d, clientInfo)
+		.then(fileLoc => {
+			clientInfo['zipPercent'] = 100;
+			clientInfo['lastAvailable'] = fileLoc;
+		})
+		.catch(err => { 
+			console.log(err);
+		});
+	
+};
